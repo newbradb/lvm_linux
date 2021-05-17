@@ -29,15 +29,25 @@ sde                       8:64   0    1G  0 disk
 
 ## Уменьшить том под / до 8G
 
-Подготовим временный том для / раздела на диске sdb :
+Подготовим временный том для / раздела на диске sdb.  
+
+Создадим  physical volume на диске sdb :
 
 ```console
 [root@lvm vagrant]# pvcreate /dev/sdb
   Physical volume "/dev/sdb" successfully created.
+```
 
+Создадим volume group   :
+
+```console
 [root@lvm vagrant]# vgcreate vg_root /dev/sdb
   Volume group "vg_root" successfully created
+```
 
+Создаем logical volume с именем ```lv_root`` и размером 100% от созданной volume group  ```vg_root``` :
+
+```console
 [root@lvm vagrant]# lvcreate -n lv_root -l +100%FREE /dev/vg_root
   Logical volume "lv_root" created.
 ```
