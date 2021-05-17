@@ -45,7 +45,7 @@ sde                       8:64   0    1G  0 disk
   Volume group "vg_root" successfully created
 ```
 
-Создаем logical volume с именем ```lv_root`` и размером 100% от созданной volume group  ```vg_root``` :
+Создаем logical volume с именем ```lv_root``` и размером 100% от созданной volume group  :
 
 ```console
 [root@lvm vagrant]# lvcreate -n lv_root -l +100%FREE /dev/vg_root
