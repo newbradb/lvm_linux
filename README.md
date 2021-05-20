@@ -45,14 +45,14 @@ sde                       8:64   0    1G  0 disk
   Volume group "vg_root" successfully created
 ```
 
-Создаем logical volume с именем ```lv_root``` и размером 100% от созданной volume group  :
+Создаем logical volume с именем `lv_root` и размером 100% от созданной volume group  :
 
 ```console
 [root@lvm vagrant]# lvcreate -n lv_root -l +100%FREE /dev/vg_root
   Logical volume "lv_root" created.
 ```
 
-Создадим на нем файловую систему и смонтируем его, чтобы перенести туда данные:
+Создадим на logical volume `lv_root`  файловую систему xfs :
 
 ```console
 [root@lvm vagrant]# mkfs.xfs /dev/vg_root/lv_root
@@ -65,6 +65,55 @@ naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
 log      =internal log           bsize=4096   blocks=2560, version=2
          =                       sectsz=512   sunit=0 blks, lazy-count=1
 realtime =none                   extsz=4096   blocks=0, rtextents=0
+```
 
+Смонтируем logical volume :
+
+```console
 [root@lvm vagrant]# mount /dev/vg_root/lv_root /mnt
 ```
+
+Cкопируем все данные с `/` раздела в `/mnt:` :
+
+```console
+[root@lvm vagrant]# xfsdump -J - /dev/VolGroup00/LogVol00 | xfsrestore -J - /mnt
+...
+xfsrestore: Restore Status: SUCCESS
+[root@lvm vagrant]#
+```
+
+Затем переконфигурируем grub для того, чтобы при старте перейти в новый `/`  
+
+Сымитируем текущий root -> сделаем в него chroot :
+
+```console
+[root@lvm vagrant]# for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done
+```
+
+Обновим grub :
+
+```console 
+[root@lvm vagrant]# grub2-mkconfig -o /boot/grub2/grub.cfg
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-3.10.0-862.2.3.el7.x86_64
+Found initrd image: /boot/initramfs-3.10.0-862.2.3.el7.x86_64.img
+Found CentOS Linux release 7.5.1804 (Core)  on /dev/mapper/vg_root-lv_root
+done
+```
+
+Обновим образ initrd (initial RAM disk) :  
+
+```console
+[root@lvm vagrant]# cd /boot ; for i in `ls initramfs-*img`; do dracut -v $i `echo $i|sed "s/initramfs-//g; \
+> s/.img//g"` --force; done
+```
+
+Ну и для того, чтобы при загрузке был смонтирован нужный `root` нужно в файле
+`/boot/grub2/grub.cfg` заменить `rd.lvm.lv=VolGroup00/LogVol00` на `rd.lvm.lv=vg_root/lv_root`
+
+```console
+[root@lvm boot]# sed -i -e 's/rd.lvm.lv=VolGroup00\/LogVol00/rd.lvm.lv=vg_root\/lv_root/' /boot/grub2/grub.cfg
+```
+
+Перезагружаемся с новым рут томом. 
+
